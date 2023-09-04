@@ -1,0 +1,3 @@
+[submodule "KiCad-SSD1306-128x64"]
+	path = KiCad/KiCad-SSD1306-128x64
+	url = git@github.com:pforrmi/KiCad-SSD1306-128x64.git
