@@ -66,10 +66,7 @@ incremental = false
 lto = 'fat'
 opt-level = 's'
 overflow-checks = false
-
-[profile.release-no-debug]
-inherits = "release"
-debug=false
+strip = 'debuginfo'
 
 # do not optimize proc-macro crates = faster builds from scratch
 [profile.dev.build-override]
