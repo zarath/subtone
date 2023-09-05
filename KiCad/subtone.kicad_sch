@@ -1072,6 +1072,31 @@
     )
   )
 
+  (symbol (lib_id "power:+3V3") (at 83.82 34.29 270) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no)
+    (uuid 15bf7cab-547f-4d99-aef7-61bb881b4fa7)
+    (property "Reference" "#PWR07" (at 80.01 34.29 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Value" "+3V3" (at 81.28 31.75 90)
+      (effects (font (size 1.27 1.27)) (justify left))
+    )
+    (property "Footprint" "" (at 83.82 34.29 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Datasheet" "" (at 83.82 34.29 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (pin "1" (uuid d820bf32-968d-4213-a6d8-680884d59d77))
+    (instances
+      (project "subtone"
+        (path "/fb2bd3e4-75a5-4576-8ec5-6224bbfd73f9"
+          (reference "#PWR07") (unit 1)
+        )
+      )
+    )
+  )
+
   (symbol (lib_id "Device:RotaryEncoder_Switch") (at 161.29 48.26 0) (mirror x) (unit 1)
     (in_bom yes) (on_board yes) (dnp no)
     (uuid 2b19c19d-7d50-4100-b026-2165577620eb)
@@ -1104,7 +1129,7 @@
   (symbol (lib_id "Jumper:Jumper_3_Bridged12") (at 77.47 34.29 0) (mirror x) (unit 1)
     (in_bom yes) (on_board yes) (dnp no)
     (uuid 33c83894-dbf2-4585-8d49-26e79e22d331)
-    (property "Reference" "JP1" (at 77.47 38.1 0)
+    (property "Reference" "JP1" (at 78.74 36.83 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Value" "Jumper_3_Bridged12" (at 77.47 38.1 0)
@@ -1191,31 +1216,6 @@
     )
   )
 
-  (symbol (lib_id "power:+5V") (at 83.82 34.29 270) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
-    (uuid 556e7cdd-4c99-4d5e-b609-57110c5cc4ae)
-    (property "Reference" "#PWR07" (at 80.01 34.29 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Value" "+5V" (at 82.55 31.75 90)
-      (effects (font (size 1.27 1.27)) (justify left))
-    )
-    (property "Footprint" "" (at 83.82 34.29 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "" (at 83.82 34.29 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 01b67063-1b74-40bb-94d0-5ef45152b7f7))
-    (instances
-      (project "subtone"
-        (path "/fb2bd3e4-75a5-4576-8ec5-6224bbfd73f9"
-          (reference "#PWR07") (unit 1)
-        )
-      )
-    )
-  )
-
   (symbol (lib_id "power:GND") (at 168.91 52.07 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid 5b88ab0d-9206-44a6-ba52-b049477d533f)
@@ -1286,6 +1286,31 @@
       (project "subtone"
         (path "/fb2bd3e4-75a5-4576-8ec5-6224bbfd73f9"
           (reference "#PWR06") (unit 1)
+        )
+      )
+    )
+  )
+
+  (symbol (lib_id "power:+5V") (at 71.12 38.1 180) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no)
+    (uuid 84fee81a-15b5-4650-8df9-a2a92012f97f)
+    (property "Reference" "#PWR09" (at 71.12 34.29 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Value" "+5V" (at 76.2 38.1 0)
+      (effects (font (size 1.27 1.27)) (justify left))
+    )
+    (property "Footprint" "" (at 71.12 38.1 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Datasheet" "" (at 71.12 38.1 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (pin "1" (uuid d2ae5b5c-bf6a-4564-8ebd-da30dc3970dd))
+    (instances
+      (project "subtone"
+        (path "/fb2bd3e4-75a5-4576-8ec5-6224bbfd73f9"
+          (reference "#PWR09") (unit 1)
         )
       )
     )
@@ -1446,31 +1471,6 @@
       (project "subtone"
         (path "/fb2bd3e4-75a5-4576-8ec5-6224bbfd73f9"
           (reference "J2") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "power:+3V3") (at 71.12 38.1 180) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
-    (uuid c7a64884-0088-4fd4-80b5-19078d266478)
-    (property "Reference" "#PWR09" (at 71.12 34.29 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Value" "+3V3" (at 71.12 43.18 0)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "" (at 71.12 38.1 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "" (at 71.12 38.1 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 64d235af-f7fe-4af6-8d34-91e500c62660))
-    (instances
-      (project "subtone"
-        (path "/fb2bd3e4-75a5-4576-8ec5-6224bbfd73f9"
-          (reference "#PWR09") (unit 1)
         )
       )
     )

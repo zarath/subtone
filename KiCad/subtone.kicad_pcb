@@ -256,11 +256,11 @@
     (fp_line (start 2.3 1.25) (end 2.3 -1.25)
       (stroke (width 0.05) (type solid)) (layer "F.CrtYd") (tstamp d362f0c7-38c8-44ee-ba8b-c458df486166))
     (pad "1" smd rect (at -1.3 0 270) (size 1 1.5) (layers "F.Cu" "F.Mask")
-      (net 2 "+3V3") (pinfunction "A") (pintype "passive") (tstamp 81fe4c2b-f3c5-444f-9bfe-e7be3a969d0a))
+      (net 12 "+5V") (pinfunction "A") (pintype "passive") (tstamp 81fe4c2b-f3c5-444f-9bfe-e7be3a969d0a))
     (pad "2" smd rect (at 0 0 270) (size 1 1.5) (layers "F.Cu" "F.Mask")
       (net 17 "Net-(J3-Pin_2)") (pinfunction "C") (pintype "passive") (tstamp e1e306b9-5c2a-4d59-b1e7-51c12dd9e35f))
     (pad "3" smd rect (at 1.3 0 270) (size 1 1.5) (layers "F.Cu" "F.Mask")
-      (net 12 "+5V") (pinfunction "B") (pintype "passive") (tstamp 05d57445-2577-4c0f-bee7-d35ed0acf8b0))
+      (net 2 "+3V3") (pinfunction "B") (pintype "passive") (tstamp 05d57445-2577-4c0f-bee7-d35ed0acf8b0))
   )
 
   (footprint "Connector_PinHeader_2.54mm:PinHeader_1x07_P2.54mm_Vertical" (layer "F.Cu")
