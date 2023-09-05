@@ -26,8 +26,8 @@ jobs:
       run: cargo build --verbose --release
     - name: Install elf2uf2-rs
       run: |
-        apt-get update
-        apt-get install -y libudev-dev 
+        sudo apt-get update
+        sudo apt-get install -y libudev-dev 
         cargo install elf2uf2-rs
     - name: Generate uf2 file
       run: elf2uf2-rs -v target/thumbv6m-none-eabi/release/subtone
