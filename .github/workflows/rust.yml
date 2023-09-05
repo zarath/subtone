@@ -16,5 +16,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Cache Rust packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo
     - name: Build
       run: cargo build --verbose --release
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: firmware-binaries
+        path: |
+          target/thumbv6m-none-eabi/release/subtone
