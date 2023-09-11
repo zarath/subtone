@@ -11,7 +11,7 @@
 #![feature(iter_array_chunks)]
 
 use std::env;
-use std::f32::consts::PI;
+use std::f64::consts::PI;
 use std::fs::{read, write, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -23,28 +23,38 @@ use tinybmp::Bmp;
 
 const PDM_BITS: usize = 14;
 
-fn pdm_table() -> Vec<u32> {
-    let pdm_tics = 1 << PDM_BITS;
-    let mut bits: Vec<u32> = Vec::with_capacity(pdm_tics);
-    let mut qe: f32 = 0.0;
+// Default waveform function. One sine but starting with the absolute
+// minimum value to suppress crackle on startup.
+#[inline]
+fn i_sine(index: usize, points: usize) -> f64 {
+    -((index as f64) / (points as f64) * 2.0 * PI).cos()
+}
 
-    let vals = (0..pdm_tics)
-        .map(|i| (((i + (pdm_tics * 3 / 4)) as f32) / ((pdm_tics >> 1) as f32) * PI).sin());
-    for v in vals {
-        qe += v;
-        if qe > 0.0 {
-            bits.push(1);
-            qe -= 1.0;
-        } else {
-            bits.push(0);
-            qe += 1.0;
-        }
-    }
-
-    bits.chunks(32)
-        // .rev()
+// PDM modulation based on pseudo code from
+// https://en.wikipedia.org/wiki/Pulse-density_modulation
+// Takes the number of modulation bits and a curve function as
+// parameters. Curve function gets current position and the
+// ammount of modulation bits and should return a f64 value between
+// -1.0 an 1.0 - preferable starting and ending with -1.0 to
+// reduce crackle. Number of point have to be a multiple of 32!
+fn pdm_table(nr_points: usize, curve: fn(usize, usize) -> f64) -> Vec<u32> {
+    assert_eq!(nr_points % 32, 0);
+    let mut qe = 0.0;
+    (0..nr_points)
+        .map(|i| curve(i, nr_points))
+        .map(|v| {
+            qe += v;
+            if qe > 0.0 {
+                qe -= 1.0;
+                1
+            } else {
+                qe += 1.0;
+                0
+            }
+        })
+        .array_chunks::<32>()
         .map(|x| x.iter().fold(0u32, |res, b| (res << 1) ^ *b))
-        .collect::<Vec<u32>>()
+        .collect()
 }
 
 fn bmp2bitstr(s: &str) -> String {
@@ -127,17 +137,23 @@ fn main() {
         .unwrap();
     println!("cargo:rustc-link-search={}", out.display());
 
-    let pdm = pdm_table();
-    let clk_div_1hz = 125_000_000.0_f32 / 2.0_f32.powi(PDM_BITS as i32);
+    let pdm = pdm_table(1 << PDM_BITS, i_sine);
+    // 8 cycles in one table for higher frequencies
+    let pdm_8 = pdm_table(1 << PDM_BITS, |i, s| i_sine(i * 8, s));
+    let clk_div_1hz = 125_000_000.0 / 2.0f32.powi(PDM_BITS as i32);
     write(
         out.join("pdm_table.rs"),
         format!(
             "\
 const PDM_TABLE: [u32; {}] = {:?};\n\
+#[allow(dead_code)]\n\
+const PDM8_TABLE: [u32; {}] = {:?};\n\
 const CLK_DIV_1HZ: f32 = {};\n\
 ",
             pdm.len(),
             pdm,
+            pdm_8.len(),
+            pdm_8,
             clk_div_1hz,
         ),
     )

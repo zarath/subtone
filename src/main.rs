@@ -155,7 +155,7 @@ fn main() -> ! {
     let p = embassy_rp::init(Default::default());
 
     info!("Init Input");
-    let enc = encoder::Encoder::new(p.PIN_2, p.PIN_4);
+    let enc = encoder::Encoder::new(Input::new(p.PIN_2, Pull::Up), Input::new(p.PIN_4, Pull::Up));
     let button = Input::new(p.PIN_3, Pull::Up);
 
     info!("Set up I2c");
