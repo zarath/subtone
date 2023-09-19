@@ -100,3 +100,7 @@ debug-assertions = false
 incremental = false
 lto = 'fat'
 opt-level = 's'
+
+[features]
+default = []
+call-tone = []
