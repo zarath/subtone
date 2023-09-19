@@ -82,7 +82,7 @@ fn bmp2bitstr(s: &str) -> String {
 
 fn fontset(p: PathBuf) {
     let sources = [
-        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "space", "dash", "dot", "off", "mem",
+        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "space", "tone", "dot", "off", "mem",
     ];
     let mut bitmaps = "".to_string();
     for filename in sources {
@@ -139,22 +139,24 @@ fn main() {
 
     let pdm = pdm_table(1 << PDM_BITS, i_sine);
     // 8 cycles in one table for higher frequencies
-    let pdm_8 = pdm_table(1 << PDM_BITS, |i, s| i_sine(i * 8, s));
+    let pdm_8 = pdm_table(1 << PDM_BITS, |i, s| i_sine(i << 3, s));
     let clk_div_1hz = 125_000_000.0 / 2.0f32.powi(PDM_BITS as i32);
     write(
         out.join("pdm_table.rs"),
         format!(
             "\
 const PDM_TABLE: [u32; {}] = {:?};\n\
-#[allow(dead_code)]\n\
 const PDM8_TABLE: [u32; {}] = {:?};\n\
 const CLK_DIV_1HZ: f32 = {};\n\
+#[allow(dead_code)]\n\
+const CLK_DIV_8HZ: f32 = {};\n\
 ",
             pdm.len(),
             pdm,
             pdm_8.len(),
             pdm_8,
             clk_div_1hz,
+            clk_div_1hz * 8.0,
         ),
     )
     .unwrap();

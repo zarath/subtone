@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "subtone"
-version = "0.1.0"
+version = "0.2.0"
 license = "MIT"
 resolver = "2"
 
@@ -100,3 +100,7 @@ debug-assertions = false
 incremental = false
 lto = 'fat'
 opt-level = 's'
+
+[features]
+default = []
+call-tone = []

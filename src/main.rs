@@ -38,11 +38,19 @@ include!(concat!(env!("OUT_DIR"), "/fontmap.rs"));
 const ADDR_OFFSET: u32 = 2 * 1024 * 1024 - 4096;
 const FLASH_SIZE: usize = 2 * 1024 * 1024;
 
+#[cfg(not(feature = "call-tone"))]
 const SUBTONES: [f32; 51] = [
     67.0, 69.3, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8, 97.4, 100.0, 103.5, 107.2,
     110.9, 114.8, 118.8, 123.0, 127.3, 131.8, 136.5, 141.3, 146.2, 150.0, 151.4, 156.7, 159.8,
     162.2, 165.5, 167.9, 171.3, 173.8, 177.3, 179.9, 183.5, 186.2, 189.9, 192.8, 196.6, 199.5,
     203.5, 206.5, 210.7, 218.1, 225.7, 229.1, 233.6, 241.8, 250.3, 254.1,
+];
+#[cfg(feature = "call-tone")]
+const SUBTONES: [f32; 52] = [
+    67.0, 69.3, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8, 97.4, 100.0, 103.5, 107.2,
+    110.9, 114.8, 118.8, 123.0, 127.3, 131.8, 136.5, 141.3, 146.2, 150.0, 151.4, 156.7, 159.8,
+    162.2, 165.5, 167.9, 171.3, 173.8, 177.3, 179.9, 183.5, 186.2, 189.9, 192.8, 196.6, 199.5,
+    203.5, 206.5, 210.7, 218.1, 225.7, 229.1, 233.6, 241.8, 250.3, 254.1, 1750.0,
 ];
 
 const POS: [Point; 5] = [
@@ -55,12 +63,17 @@ const POS: [Point; 5] = [
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq)]
-struct Message {
-    counter: usize,
+struct Message<'a> {
+    divider: U24F8,
+    pdm_table: &'a [u32],
     enabled: bool,
 }
 
-type Config = Message;
+#[derive(Clone, Copy, PartialEq)]
+struct Config {
+    counter: usize,
+    enabled: bool,
+}
 
 static mut CORE1_STACK: Stack<4096> = Stack::new();
 static EXECUTOR0: StaticCell<Executor> = StaticCell::new();
@@ -79,19 +92,24 @@ type Display = Ssd1306<
     BufferedGraphicsMode<ssd1306::prelude::DisplaySize128x64>,
 >;
 
-// let mut flash = Flash::<_, Async, FLASH_SIZE>::new(flash, dma_1);
+macro_rules! send_msg {
+    ($dividers:ident, $pdm_tables:ident, $counter:expr, $enabled:expr) => {
+        CHANNEL
+            .send(Message {
+                divider: $dividers[$counter],
+                pdm_table: $pdm_tables[$counter],
+                enabled: $enabled,
+            })
+            .await;
+        Timer::after(Duration::from_millis(10)).await;
+    };
+}
+
 #[inline]
-fn read_config(flash: &mut Flash<'_, FLASH, Async, FLASH_SIZE>) -> Config {
+fn read_config<'a>(flash: &mut Flash<'a, FLASH, Async, FLASH_SIZE>) -> Config {
     let ref mut flash_buf = [0u8; size_of::<Config>()];
     flash.read(ADDR_OFFSET, flash_buf).unwrap();
-    let mut cfg = unsafe { *(flash_buf as *const u8 as *const Config) };
-    if cfg.counter >= SUBTONES.len() {
-        cfg.counter = 0;
-        cfg.enabled = true;
-    };
-    info!("Counter: {}", cfg.counter);
-    info!("Enabled: {}", cfg.enabled);
-    cfg
+    unsafe { *(flash_buf as *const u8 as *const Config) }
 }
 
 #[inline]
@@ -111,42 +129,80 @@ fn write_config(flash: &mut Flash<'_, FLASH, Async, FLASH_SIZE>, cfg: Config) {
 
 #[inline]
 fn freq_2_divider(freq: f32) -> U24F8 {
-    U24F8::from_num(CLK_DIV_1HZ / freq)
+    #[cfg(not(feature = "call-tone"))]
+    {
+        U24F8::from_num(CLK_DIV_1HZ / freq)
+    }
+    #[cfg(feature = "call-tone")]
+    {
+        if freq < 1000.0 {
+            U24F8::from_num(CLK_DIV_1HZ / freq)
+        } else {
+            U24F8::from_num(CLK_DIV_8HZ / freq)
+        }
+    }
+}
+
+#[inline]
+fn freq_2_pdm_table(freq: f32) -> &'static [u32] {
+    if freq < 1000.0 {
+        &PDM_TABLE
+    } else {
+        &PDM8_TABLE
+    }
 }
 
 #[inline]
 fn display_freq(display: &mut Display, counter: usize, enabled: bool) {
+    // one decimal place
     let mut v = (SUBTONES[counter] * 10.0_f32) as usize;
-    let mut z = (v / 1000).clamp(0, 9);
-
-    v %= 1000;
-    if z == 0 {
-        CHARS[Font::Fspace as usize]
-            .translate(POS[0])
-            .draw(display)
-            .unwrap();
+    if v >= 10000 {
+        let mut leading_zero = true;
+        for p in 0..5 {
+            let divider = 10_usize.pow(5 - p);
+            let z = (v / divider).clamp(0, 9);
+            v %= divider;
+            if leading_zero && z == 0 {
+                CHARS[Font::Fspace as usize]
+                    .translate(POS[p as usize])
+                    .draw(display)
+                    .unwrap();
+            } else {
+                leading_zero = false;
+                CHARS[z].translate(POS[p as usize]).draw(display).unwrap()
+            }
+        }
     } else {
-        CHARS[z].translate(POS[0]).draw(display).unwrap()
+        let mut z = (v / 1000).clamp(0, 9);
+        v %= 1000;
+        if z == 0 {
+            CHARS[Font::Fspace as usize]
+                .translate(POS[0])
+                .draw(display)
+                .unwrap();
+        } else {
+            CHARS[z].translate(POS[0]).draw(display).unwrap()
+        }
+        z = (v / 100).clamp(0, 9);
+        v %= 100;
+        CHARS[z].translate(POS[1]).draw(display).unwrap();
+        z = (v / 10).clamp(0, 9);
+        v %= 10;
+        CHARS[z].translate(POS[2]).draw(display).unwrap();
+        z = (v).clamp(0, 9);
+        if enabled {
+            CHARS[Font::Fdot as usize]
+                .translate(POS[3])
+                .draw(display)
+                .unwrap();
+        } else {
+            CHARS[Font::Foff as usize]
+                .translate(POS[3])
+                .draw(display)
+                .unwrap();
+        }
+        CHARS[z].translate(POS[4]).draw(display).unwrap();
     }
-    z = (v / 100).clamp(0, 9);
-    v %= 100;
-    CHARS[z].translate(POS[1]).draw(display).unwrap();
-    z = (v / 10).clamp(0, 9);
-    v %= 10;
-    CHARS[z].translate(POS[2]).draw(display).unwrap();
-    z = (v).clamp(0, 9);
-    if enabled {
-        CHARS[Font::Fdot as usize]
-            .translate(POS[3])
-            .draw(display)
-            .unwrap();
-    } else {
-        CHARS[Font::Foff as usize]
-            .translate(POS[3])
-            .draw(display)
-            .unwrap();
-    }
-    CHARS[z].translate(POS[4]).draw(display).unwrap();
     display.flush().unwrap();
 }
 
@@ -183,8 +239,11 @@ async fn core0_task(
 ) {
     info!("Hello from core 0");
 
+    let dividers = SUBTONES.map(freq_2_divider);
+    let pdm_tables = SUBTONES.map(freq_2_pdm_table);
+
     let mut flash = Flash::<_, Async, FLASH_SIZE>::new(flash, dma_1);
-    let Message {
+    let Config {
         mut counter,
         mut enabled,
     } = read_config(&mut flash);
@@ -196,8 +255,21 @@ async fn core0_task(
     display.init().unwrap();
     display.set_brightness(Brightness::DIM).unwrap();
 
+    if counter >= SUBTONES.len() {
+        counter = 0;
+    }
+
     loop {
-        CHANNEL.send(Message { counter, enabled }).await;
+        #[cfg(not(feature = "call-tone"))]
+        send_msg!(dividers, pdm_tables, counter, enabled);
+        #[cfg(feature = "call-tone")]
+        {
+            if SUBTONES[counter] < 1000.0 {
+                send_msg!(dividers, pdm_tables, counter, enabled);
+            } else {
+                send_msg!(dividers, pdm_tables, counter, false);
+            }
+        }
         display_freq(display, counter, enabled);
 
         match select(enc.wait_for(), button.wait_for_low()).await {
@@ -212,15 +284,40 @@ async fn core0_task(
                 }
             },
             Either::Second(_) => {
+                info!("Button pressed");
                 Timer::after(DELAY_DEFAULT).await;
                 match with_timeout(Duration::from_millis(750), button.wait_for_high()).await {
-                    Ok(_) => enabled = !enabled,
+                    Ok(_) => {
+                        #[cfg(not(feature = "call-tone"))]
+                        {
+                            enabled = !enabled
+                        }
+                        #[cfg(feature = "call-tone")]
+                        {
+                            if SUBTONES[counter] < 1000.0 {
+                                enabled = !enabled
+                            } else {
+                                // send the tone for just a second
+                                CHARS[Font::Ftone as usize]
+                                    .translate(POS[0])
+                                    .draw(display)
+                                    .unwrap();
+                                display.flush().unwrap();
+                                send_msg!(dividers, pdm_tables, counter, true);
+                                Timer::after(Duration::from_millis(1000)).await;
+                                send_msg!(dividers, pdm_tables, counter, false);
+                            }
+                        }
+                    }
                     Err(_) => {
                         CHARS[Font::Fmem as usize]
-                            .translate(POS[3])
+                            .translate(POS[if SUBTONES[counter] < 1000.0 { 3 } else { 0 }])
                             .draw(display)
                             .unwrap();
+                        // flashing struggles if pdm is disabled?
+                        send_msg!(dividers, pdm_tables, counter, true);
                         write_config(&mut flash, Config { counter, enabled });
+                        send_msg!(dividers, pdm_tables, counter, enabled);
                         display.flush().unwrap();
                         Timer::after(Duration::from_millis(750)).await;
                     }
@@ -245,10 +342,6 @@ async fn core1_task(pdm_pin: PIN_26, pio_0: PIO0, dma_0: DMA_CH0) {
         ..
     } = Pio::new(pio_0, Irqs);
     let out_pin = common.make_pio_pin(pdm_pin);
-    let dividers = SUBTONES.map(freq_2_divider);
-    let Message { counter, enabled } = CHANNEL.recv().await;
-    let mut current_divider = dividers[counter];
-
     let prg = pio_asm!(
         ".origin 0",
         "set pindirs, 1",
@@ -262,36 +355,37 @@ async fn core1_task(pdm_pin: PIN_26, pio_0: PIO0, dma_0: DMA_CH0) {
     cfg.fifo_join = FifoJoin::TxOnly;
     cfg.set_out_pins(&[&out_pin]);
     cfg.set_set_pins(&[&out_pin]);
-    cfg.clock_divider = current_divider;
     cfg.shift_out.auto_fill = true;
     cfg.shift_out.direction = ShiftDirection::Left;
+    let mut dma_out_ref = dma_0.into_ref();
 
+    let Message {
+        divider,
+        mut pdm_table,
+        enabled,
+    } = CHANNEL.recv().await;
+
+    cfg.clock_divider = divider;
     sm.set_config(&cfg);
     sm.set_enable(enabled);
-
-    let mut dma_out_ref = dma_0.into_ref();
 
     loop {
         match select(
             CHANNEL.recv(),
-            sm.tx().dma_push(dma_out_ref.reborrow(), &PDM_TABLE),
+            sm.tx().dma_push(dma_out_ref.reborrow(), pdm_table),
         )
         .await
         {
-            Either::First(Message { counter, enabled }) => {
-                info!("Got counter: {}", counter);
-                if (current_divider.to_bits() != dividers[counter].to_bits()) || !sm.is_enabled() {
-                    info!(
-                        "Counter changed: {} {}",
-                        counter,
-                        dividers[counter].to_bits() as u32
-                    );
-                    current_divider = dividers[counter];
-                    sm.set_enable(false);
-                    cfg.clock_divider = current_divider;
-                    sm.set_config(&cfg);
-                    sm.set_enable(enabled);
-                }
+            Either::First(Message {
+                divider,
+                pdm_table: pdm,
+                enabled,
+            }) => {
+                sm.set_enable(false);
+                cfg.clock_divider = divider;
+                sm.set_config(&cfg);
+                sm.set_enable(enabled);
+                pdm_table = pdm;
             }
             Either::Second(_) => (),
         }
