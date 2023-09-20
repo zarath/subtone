@@ -11,7 +11,9 @@ DA-conversation.
 Prefer tantalum caps for better switching supression.
 
 ![prototype](Prototype.jpg "Prototype attached to 23cm tranciever")
+
 ![prototype](Prototype_2.jpg "First prototype PCB (needs a bodge)")
+![prototype](Prototype_2b.jpg "First prototype PCB (needs a bodge, backside)")
 
 Waveform Example
 ----------------
