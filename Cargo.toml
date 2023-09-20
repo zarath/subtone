@@ -104,3 +104,4 @@ opt-level = 's'
 [features]
 default = []
 call-tone = []
+rotate = []

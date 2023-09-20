@@ -38,6 +38,11 @@ include!(concat!(env!("OUT_DIR"), "/fontmap.rs"));
 const ADDR_OFFSET: u32 = 2 * 1024 * 1024 - 4096;
 const FLASH_SIZE: usize = 2 * 1024 * 1024;
 
+#[cfg(not(feature = "rotate"))]
+const DISP_ROTATION: DisplayRotation = DisplayRotation::Rotate0;
+#[cfg(feature = "rotate")]
+const DISP_ROTATION: DisplayRotation = DisplayRotation::Rotate180;
+
 #[cfg(not(feature = "call-tone"))]
 const SUBTONES: [f32; 51] = [
     67.0, 69.3, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8, 97.4, 100.0, 103.5, 107.2,
@@ -250,8 +255,8 @@ async fn core0_task(
 
     info!("Set up Display");
     let interface = I2CDisplayInterface::new(i2c);
-    let ref mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
-        .into_buffered_graphics_mode();
+    let ref mut display =
+        Ssd1306::new(interface, DisplaySize128x64, DISP_ROTATION).into_buffered_graphics_mode();
     display.init().unwrap();
     display.set_brightness(Brightness::DIM).unwrap();
 
