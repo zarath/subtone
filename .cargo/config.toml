@@ -2,6 +2,18 @@
 runner = "probe-rs run --chip RP2040 --protocol swd"
 # runner = "elf2uf2-rs -d"
 
+[target.thumbv6m-none-eabi]
+runner = "probe-rs run --chip RP2040 --protocol swd"  # "elf2uf2-rs -d"
+# rustflags = [
+#     "-C", "link-arg=--nmagic",
+#     "-C", "link-arg=-Tlink.x",
+#     "-C", "link-arg=-Tlink-rp.x",
+#     "-C", "link-arg=-Tdefmt.x",
+#     "-C", "linker=flip-link",
+#     "-C", "inline-threshold=5",
+#     "-C", "no-vectorize-loops",
+# ]
+
 [build]
 target = "thumbv6m-none-eabi"        # Cortex-M0 and Cortex-M0+
 
@@ -10,3 +22,4 @@ DEFMT_LOG = "debug"
 
 [unstable]
 build-std = ["core"]
+

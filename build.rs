@@ -11,7 +11,6 @@
 #![feature(iter_array_chunks)]
 
 use std::env;
-use std::f64::consts::PI;
 use std::fs::{read, write, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -21,41 +20,10 @@ use embedded_graphics::prelude::RgbColor;
 use embedded_graphics::Pixel;
 use tinybmp::Bmp;
 
-const PDM_BITS: usize = 14;
+use pdm::{generate, sine_idx};
 
-// Default waveform function. One sine but starting with the absolute
-// minimum value to suppress crackle on startup.
-#[inline]
-fn i_sine(index: usize, points: usize) -> f64 {
-    -((index as f64) / (points as f64) * 2.0 * PI).cos()
-}
-
-// PDM modulation based on pseudo code from
-// https://en.wikipedia.org/wiki/Pulse-density_modulation
-// Takes the number of modulation bits and a curve function as
-// parameters. Curve function gets current position and the
-// ammount of modulation bits and should return a f64 value between
-// -1.0 an 1.0 - preferable starting and ending with -1.0 to
-// reduce crackle. Number of point have to be a multiple of 32!
-fn pdm_table(nr_points: usize, curve: fn(usize, usize) -> f64) -> Vec<u32> {
-    assert_eq!(nr_points % 32, 0);
-    let mut qe = 0.0;
-    (0..nr_points)
-        .map(|i| curve(i, nr_points))
-        .map(|v| {
-            qe += v;
-            if qe > 0.0 {
-                qe -= 1.0;
-                1
-            } else {
-                qe += 1.0;
-                0
-            }
-        })
-        .array_chunks::<32>()
-        .map(|x| x.iter().fold(0u32, |res, b| (res << 1) ^ *b))
-        .collect()
-}
+const PDM_BITS: usize = 1 << 14;
+const PDM_BYTES: usize = PDM_BITS >> 3;
 
 fn bmp2bitstr(s: &str) -> String {
     let f = read(Path::new("font").join(format!("{}.bmp", s))).unwrap();
@@ -82,7 +50,7 @@ fn bmp2bitstr(s: &str) -> String {
 
 fn fontset(p: PathBuf) {
     let sources = [
-        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "space", "tone", "dot", "off", "mem",
+        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "space", "dash", "dot", "off", "mem",
     ];
     let mut bitmaps = "".to_string();
     for filename in sources {
@@ -93,32 +61,25 @@ fn fontset(p: PathBuf) {
     let mut images = "".to_string();
     let mut chars = "".to_string();
     for src in sources {
-        enums.push_str(&format!("    F{},\n", src));
+        enums.push_str(&format!("    F{src},\n"));
         images.push_str(&format!(
-            "    ImageRaw::<BinaryColor>::new(DATA[Font::F{} as usize], 24),\n",
-            src
+            "    ImageRaw::<BinaryColor>::new(DATA[Font::F{src} as usize], 24),\n"
         ));
         chars.push_str(&format!(
-            "    Image::new(&IMAGES[Font::F{} as usize], Point::zero()),\n",
-            src
+            "    Image::new(&IMAGES[Font::F{src} as usize], Point::zero()),\n"
         ));
     }
+    let sources_len = sources.len();
 
     write(
         p,
         format!(
             "#[allow(unused)]\n\
-            enum Font {{\n{}}}\n\n\
-            const DATA: &[&[u8]] = &[\n{}];\n\n\
-            const IMAGES: [ImageRaw<BinaryColor>; {}] =[\n{}];\n\n\
-            const CHARS: [Image<ImageRaw<BinaryColor>>; {}] =[\n{}];\n\
-            ",
-            enums,
-            bitmaps,
-            sources.len(),
-            images,
-            sources.len(),
-            chars,
+            enum Font {{\n{enums}}}\n\n\
+            const DATA: &[&[u8]] = &[\n{bitmaps}];\n\n\
+            const IMAGES: [ImageRaw<BinaryColor>; {sources_len}] =[\n{images}];\n\n\
+            const CHARS: [Image<ImageRaw<BinaryColor>>; {sources_len}] =[\n{chars}];\n\
+            "
         ),
     )
     .unwrap();
@@ -137,26 +98,18 @@ fn main() {
         .unwrap();
     println!("cargo:rustc-link-search={}", out.display());
 
-    let pdm = pdm_table(1 << PDM_BITS, i_sine);
-    // 8 cycles in one table for higher frequencies
-    let pdm_8 = pdm_table(1 << PDM_BITS, |i, s| i_sine(i << 3, s));
-    let clk_div_1hz = 125_000_000.0 / 2.0f32.powi(PDM_BITS as i32);
+    let pdm = generate::<PDM_BITS, PDM_BYTES>(sine_idx::<PDM_BITS>);
+    let clk_div_1hz = 125_000_000.0 / (PDM_BITS as f32);
     write(
         out.join("pdm_table.rs"),
         format!(
             "\
-const PDM_TABLE: [u32; {}] = {:?};\n\
-const PDM8_TABLE: [u32; {}] = {:?};\n\
-const CLK_DIV_1HZ: f32 = {};\n\
-#[allow(dead_code)]\n\
-const CLK_DIV_8HZ: f32 = {};\n\
-",
-            pdm.len(),
-            pdm,
-            pdm_8.len(),
-            pdm_8,
-            clk_div_1hz,
-            clk_div_1hz * 8.0,
+#[repr (C, align ({PDM_BYTES}))]
+struct PdmBuffer([u8; {PDM_BYTES}]);
+
+static PDM_TABLE: PdmBuffer = PdmBuffer({pdm:?});\n\
+const CLK_DIV_1HZ: f32 = {clk_div_1hz};\n\
+"
         ),
     )
     .unwrap();
