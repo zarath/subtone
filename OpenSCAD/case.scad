@@ -213,8 +213,19 @@ module knob()
 			cylinder(h = 12.0, d1 = 2.4, d2 = 2.0);
 		}
 	}
+	for (w = [45.0:90.0:315.0])
+	{
+		rotate([0.0, 0.0, w]) 
+			translate([4.0, 0.0, 3.5])
+				cube([2.0, 0.6, 7], center=true);
+	}
+	for (w = [45.0:90.0:135.0])
+	{
+		rotate([0.0, 0.0, w]) 
+			translate([3.8, 0.0, 3.5])
+				cube([2.6, 0.6, 7], center=true);
+	}
 }
 // baseplate();
 // case ();
 knob();
-// pipe(h=20, do=20, di=16);

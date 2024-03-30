@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "subtone"
-version = "0.3.0"
+version = "0.4.0"
 license = "MIT"
 resolver = "2"
 
@@ -15,19 +15,20 @@ panic-probe = { version = "0.3", features = ["print-defmt"] }
 
 embassy-embedded-hal = { version ="0.1.0", features = ["defmt"] }
 
-embassy-executor = { version = "0.4.0", features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt", "integrated-timers"] }
+embassy-executor = { version = "0.5.0", features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt", "integrated-timers"] }
 embassy-futures = { version = "0.1.1", features = ["defmt"] }
 embassy-sync = { version = "0.5.0", features = ["defmt"] }
-embassy-time = { version = "0.2.0", features = ["defmt", "defmt-timestamp-uptime"] }
+embassy-time = { version = "0.3.0", features = ["defmt", "defmt-timestamp-uptime"] }
 embassy-rp = { version = "0.1.0", features = ["defmt", "unstable-pac", "time-driver", "critical-section-impl"] }
 
 ssd1306 = "0.8.0"
 fixed = "1.23.1"
 pio-proc = "0.2"
 pio = "0.2.1"
-static_cell = "1.3.0"
+static_cell = "2.0.0"
+portable-atomic = { version = "1.6.0", features = ["critical-section"] }
 embedded-graphics = "0.8.1"
-display-interface = "0.4.1"
+display-interface = "0.5.0"
 
 rp2040-boot2 = "0.3.0"
 
@@ -37,12 +38,12 @@ tinybmp = "0.5.0"
 pdm = {version = "0.1.0", git = "https://github.com/zarath/embedded-libs" }
 
 [patch.crates-io]
-embassy-embedded-hal = { git = "https://github.com/embassy-rs/embassy", rev = "ca2e3759ad31f511c239d30132a28714b0e402db" }
-embassy-sync = { git = "https://github.com/embassy-rs/embassy", rev = "ca2e3759ad31f511c239d30132a28714b0e402db" }
-embassy-executor = { git = "https://github.com/embassy-rs/embassy", rev = "ca2e3759ad31f511c239d30132a28714b0e402db" }
-embassy-time = { git = "https://github.com/embassy-rs/embassy", rev = "ca2e3759ad31f511c239d30132a28714b0e402db" } 
-embassy-rp = { git = "https://github.com/embassy-rs/embassy", rev = "ca2e3759ad31f511c239d30132a28714b0e402db" }
-embassy-futures = { git = "https://github.com/embassy-rs/embassy", rev = "ca2e3759ad31f511c239d30132a28714b0e402db" }
+embassy-embedded-hal = { git = "https://github.com/embassy-rs/embassy", rev = "f3a0bcb15eb7f7d1b2f9d948f8d487b76a4308fe" }
+embassy-sync = { git = "https://github.com/embassy-rs/embassy", rev = "f3a0bcb15eb7f7d1b2f9d948f8d487b76a4308fe" }
+embassy-executor = { git = "https://github.com/embassy-rs/embassy", rev = "f3a0bcb15eb7f7d1b2f9d948f8d487b76a4308fe" }
+embassy-time = { git = "https://github.com/embassy-rs/embassy", rev = "f3a0bcb15eb7f7d1b2f9d948f8d487b76a4308fe" }
+embassy-rp = { git = "https://github.com/embassy-rs/embassy", rev = "f3a0bcb15eb7f7d1b2f9d948f8d487b76a4308fe" }
+embassy-futures = { git = "https://github.com/embassy-rs/embassy", rev = "f3a0bcb15eb7f7d1b2f9d948f8d487b76a4308fe" }
 
 # cargo build/run
 [profile.dev]

@@ -1,8 +1,7 @@
 use defmt::info;
 use embassy_futures::join::join;
 use embassy_futures::select::{select, Either};
-use embassy_rp::gpio::{Flex, Pin, Pull};
-use embassy_rp::Peripheral;
+use embassy_rp::gpio::Input;
 use embassy_time::{Duration, Timer};
 
 pub enum EncoderDirection {
@@ -12,20 +11,14 @@ pub enum EncoderDirection {
 
 pub static DELAY_DEFAULT: Duration = Duration::from_millis(5);
 
-pub struct Encoder<'d, T: Pin, V: Pin> {
-    pin_a: Flex<'d, T>,
-    pin_b: Flex<'d, V>,
+pub struct Encoder<'d> {
+    pin_a: Input<'d>,
+    pin_b: Input<'d>,
 }
 
-impl<'d, T: Pin, V: Pin> Encoder<'d, T, V> {
+impl<'d> Encoder<'d> {
     #[inline]
-    pub fn new(pin_a: impl Peripheral<P = T> + 'd, pin_b: impl Peripheral<P = V> + 'd) -> Self {
-        let mut pin_a = Flex::new(pin_a);
-        let mut pin_b = Flex::new(pin_b);
-        pin_a.set_as_input();
-        pin_a.set_pull(Pull::Up);
-        pin_b.set_as_input();
-        pin_b.set_pull(Pull::Up);
+    pub fn new(pin_a: Input<'static>, pin_b: Input<'static>) -> Self {
         Self { pin_a, pin_b }
     }
 

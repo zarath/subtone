@@ -1,8 +1,9 @@
 #![no_std]
 #![no_main]
 #![feature(type_alias_impl_trait)]
-
+#[allow(static_mut_refs)]
 use core::mem::size_of;
+use core::ptr::addr_of_mut;
 
 use defmt::info;
 use embassy_executor::Executor;
@@ -13,8 +14,8 @@ use embassy_rp::{
     gpio::{Input, Pull},
     i2c::{Config as I2cConfig, I2c},
     multicore::{spawn_core1, Stack},
-    peripherals::{DMA_CH0, DMA_CH1, FLASH, I2C1, PIN_2, PIN_26, PIN_3, PIN_4, PIO0},
-    pio::{Config as PioConfig, FifoJoin, InterruptHandler, Pio, ShiftDirection},
+    peripherals::{DMA_CH0, DMA_CH1, FLASH, I2C1, PIN_26, PIO0},
+    pio::{Config as PioConfig, FifoJoin, InterruptHandler, Pio, ShiftDirection, StateMachine},
     rom_data::{float_funcs::fdiv, reset_to_usb_boot},
     Peripheral,
 };
@@ -88,8 +89,8 @@ static CHANNEL: Channel<CriticalSectionRawMutex, Message, 1> = Channel::new();
 
 mod encoder;
 
-type Encoder = encoder::Encoder<'static, PIN_2, PIN_4>;
-type Button = Input<'static, PIN_3>;
+type Encoder = encoder::Encoder<'static>;
+type Button = Input<'static>;
 type I2cChan1 = embassy_rp::i2c::I2c<'static, I2C1, embassy_rp::i2c::Blocking>;
 
 type Display = Ssd1306<
@@ -118,11 +119,11 @@ fn write_config(flash: &mut Flash<'_, FLASH, Async, FLASH_SIZE>, cfg: Config) {
     if read_config(flash) == cfg {
         return;
     }
-    // info!("Flashing!");
-    defmt::unwrap!(flash.blocking_erase(ADDR_OFFSET, ADDR_OFFSET + ERASE_SIZE as u32));
     let buf: &[u8] = unsafe {
         core::slice::from_raw_parts(&cfg as *const Config as *const u8, size_of::<Config>())
     };
+    info!("Flashing!");
+    defmt::unwrap!(flash.blocking_erase(ADDR_OFFSET, ADDR_OFFSET + ERASE_SIZE as u32));
     flash.blocking_write(ADDR_OFFSET, buf).unwrap();
 }
 
@@ -173,7 +174,7 @@ fn main() -> ! {
     let p = embassy_rp::init(Default::default());
 
     // info!("Init Input");
-    let enc = encoder::Encoder::new(p.PIN_2, p.PIN_4);
+    let enc = encoder::Encoder::new(Input::new(p.PIN_2, Pull::Up), Input::new(p.PIN_4, Pull::Up));
     let button = Input::new(p.PIN_3, Pull::Up);
 
     // info!("Set up I2c");
@@ -183,14 +184,18 @@ fn main() -> ! {
     i2c_config.frequency = 400_000;
     let i2c = I2c::new_blocking(p.I2C1, scl, sda, i2c_config);
 
-    spawn_core1(p.CORE1, unsafe { &mut CORE1_STACK }, move || {
-        let executor1 = EXECUTOR1.init(Executor::new());
-        executor1.run(|spawner| {
-            spawner
-                .spawn(core1_task(p.PIN_26, p.PIO0, p.DMA_CH0))
-                .unwrap()
-        });
-    });
+    spawn_core1(
+        p.CORE1,
+        unsafe { &mut *addr_of_mut!(CORE1_STACK) },
+        move || {
+            let executor1 = EXECUTOR1.init(Executor::new());
+            executor1.run(|spawner| {
+                spawner
+                    .spawn(core1_task(p.PIN_26, p.PIO0, p.DMA_CH0))
+                    .unwrap()
+            });
+        },
+    );
 
     let executor0 = EXECUTOR0.init(Executor::new());
     executor0.run(|spawner| {
@@ -309,20 +314,35 @@ async fn core1_task(pdm_pin: PIN_26, pio_0: PIO0, dma_0: DMA_CH0) {
     let mut dma_out_ref = dma_0.into_ref();
 
     loop {
-        match select(
-            CHANNEL.receive(),
-            sm.tx().dma_push(dma_out_ref.reborrow(), &PDM_TABLE.0),
-        )
-        .await
-        {
-            Either::First(Message { freq, enabled }) => {
-                info!("Got Message: {} {}", freq, enabled);
-                sm.set_enable(false);
-                cfg.clock_divider = freq_2_divider(freq);
-                sm.set_config(&cfg);
-                sm.set_enable(enabled);
+        if enabled {
+            match select(
+                CHANNEL.receive(),
+                sm.tx().dma_push(dma_out_ref.reborrow(), &PDM_TABLE.0),
+            )
+            .await
+            {
+                Either::First(Message { freq, enabled }) => {
+                    set_divider(&mut sm, &mut cfg, freq, enabled);
+                }
+                Either::Second(_) => (),
             }
-            Either::Second(_) => (),
+        } else {
+            let Message { freq, enabled } = CHANNEL.receive().await;
+            set_divider(&mut sm, &mut cfg, freq, enabled);
         }
     }
+}
+
+#[inline]
+fn set_divider<'d>(
+    sm: &mut StateMachine<'d, PIO0, 0>,
+    cfg: &mut PioConfig<'d, PIO0>,
+    freq: f32,
+    enabled: bool,
+) {
+    info!("Set freq: {}", freq);
+    sm.set_enable(false);
+    cfg.clock_divider = freq_2_divider(freq);
+    sm.set_config(&cfg);
+    sm.set_enable(enabled);
 }
